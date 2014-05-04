@@ -3,8 +3,8 @@
 | **Module Name:** | **ExceltoPandas** |
 | **Author:**      | **Rory Creedon** (rcreedon@poverty-action.org) |
 | **Purpose:**     | Library of Classes and Functions for converting multi-worksheet ExcelFile to pandas using a descriptive workbook structure file such as that created by the WorkbookFunctions module|
-| **Use:	**	   | Intended for use in IPython, in particular an IPython notebook (although will work in any python terminal).|
-| **Dependencies:	**	   | WorkbookFunctions|
+| **Use:**	   | Intended for use in IPython, in particular an IPython notebook (although will work in any python terminal).|
+| **Dependencies:**	   | WorkbookFunctions|
 
 #Introduction<br/> 
 #==========

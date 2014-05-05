@@ -31,7 +31,10 @@ class workbook_iterator(object):
 									  header = self._wkbk_struc['start_rows'][sheet],
 									  skip_footer = len_DF - self._wkbk_struc['end_rows'][sheet],
 									  parse_cols = self._wkbk_struc['cols']
-									 ) 
+									 )
+			DF['Index1'] = pd.Series([sheet for x in xrange(len(DF))])
+			DF['Index2'] = pd.Series([i for i in xrange(len(DF))])
+			DF.set_index(['Index1', 'Index2'], inplace = True)
 			self.All_DFs[sheet] = DF
 		self.DFs = self.All_DFs.keys()
 		self.DFs.sort()
@@ -52,7 +55,7 @@ class workbook_iterator(object):
 				DF_line_vals.append(str(int(line)))
 			except ValueError:
 				DF_line_vals.append(str(line))
-		DF_line_vals = [line_val if line_val != 'none' else NA for line_val in DF_line_vals]
+		DF_line_vals = [line_val if line_val != 'nan' else str(NA) for line_val in DF_line_vals]
 		return DF_line_vals
 
 class workbook_checker(workbook_iterator):
@@ -146,12 +149,14 @@ class workbook_concatenator(workbook_iterator):
 		for DF in self.DFs:
 			DFM = self.All_DFs[DF]
 			if numerical:
-				line_Series = pd.Series(self._numerical_lines(DFM[line_col_ref]))
-				DFM[line_col_ref] = line_Series
+				line_Series = pd.Series(self._numerical_lines(DFM[line_col_ref]), index = DFM.index)
+				DFM[line_col_ref] = line_Series.astype(str)
+			DFM.reset_index(inplace = True)
 			DFM = DFM.merge(self.line_codes, 
 						    left_on = line_col_ref,
 							right_on = 'line',
 							how = 'left')
+			DFM.set_index(['Index1', 'Index2'], inplace = True)
 			DFM['date'] = self._wkbk_struc['dates'][DF]
 			self.All_DFs_merged[DF] = DFM
 			
@@ -159,7 +164,6 @@ class workbook_concatenator(workbook_iterator):
 		DFC = pd.concat(self.All_DFs_merged[DF] for DF in self.DFs)
 		if drop_na_lines:
 			DFC = DFC[pd.notnull(DFC['line_code'])]
-		DFC.set_index(['date', 'line_code'], inplace = True)
 		return DFC
 		
 def get_workbook_stucture(json_file_path):
@@ -209,17 +213,4 @@ def unpickle_dataframe(top_folderpath, file_name):
 	os.chdir(top_folderpath)
 	DF = pickle.load(open(file_name, "rb"))
 	return DF
-	
-
-				
-			
-			
-		
-
-	
-		
-
-			
-			
-		
 	

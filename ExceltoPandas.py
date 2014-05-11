@@ -128,7 +128,7 @@ class workbook_checker(workbook_iterator):
 		multiple_lines = {key : value for key, value in multiple_lines.iteritems() if value}
 		return multiple_lines
 		
-	def check_unusual_lines(self, line_col_ref, other_lines, numerical = True)
+	def check_unusual_lines(self, line_col_ref, other_lines, numerical = True):
 		"""
 		line_col_ref 	: string
 		other_lines 	: list

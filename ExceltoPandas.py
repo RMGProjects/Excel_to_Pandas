@@ -27,9 +27,13 @@ class workbook_iterator(object):
 		self.All_DFs = {sheet : DataFrame() for sheet in self.__wkbk_DF.sheet_names}
 		for sheet in self.All_DFs.keys():
 			len_DF = len(self.__wkbk_DF.parse(sheet))
+			if len_DF < self._wkbk_struc['end_rows'][sheet]:
+				skiprows = 0
+			else:
+				skiprows = len_DF - self._wkbk_struc['end_rows'][sheet]
 			DF = self.__wkbk_DF.parse(sheet,
 									  header = self._wkbk_struc['start_rows'][sheet],
-									  skip_footer = len_DF - self._wkbk_struc['end_rows'][sheet],
+									  skip_footer = skiprows,
 									  parse_cols = self._wkbk_struc['cols']
 									 )
 			DF['Index1'] = pd.Series([sheet for x in xrange(len(DF))])
@@ -160,7 +164,7 @@ class workbook_checker(workbook_iterator):
 			unusuals = set(DF_line_vals).difference(total_lines)
 			if len(unusuals) > 0:
 				unusual_lines_dict[DF].extend([unusual for unusual in unusuals])
-		unusual_lines = {key : value for key, value in unusual_lines.iteritems() if value}
+		unusual_lines = {key : value for key, value in unusual_lines_dict.iteritems() if value}
 		return unusual_lines
 	
 class workbook_concatenator(workbook_iterator):
@@ -282,4 +286,78 @@ def unpickle_dataframe(top_folderpath, file_name):
 	os.chdir(top_folderpath)
 	DF = pickle.load(open(file_name, "rb"))
 	return DF
+
+class CriticalPoints:
+	##MOSTLY UNTESTED
+	def __init__(self, DF, cols, line_col_ref, date_col_ref):
+		self.DF = DF
+		self.cols = cols
+		self.line_col_ref = line_col_ref
+		self.date_col_ref = date_col_ref
+		
+	def critical_single_nans(self):
+		all_nan_dict = {line : [] for line in self.DF[self.line_col_ref].unique()}
+		nested_bools = [pd.isnull(self.DF[col]) for col in self.cols]
+		for x in self.DF.index:
+			if all(elem[x] for elem in nested_bools):
+				all_nan_dict[self.DF.loc[x, self.line_col_ref]].append(self.DF.loc[x, self.date_col_ref])
+		return all_nan_dict
+		
+	def critical_single_zeros(self):
+		all_zeros_dict = {line : [] for line in self.DF[self.line_col_ref].unique()}
+		nested_bools = [np.float64(self.DF[col]) == 0 for col in self.cols]
+		for x in self.DF.index:
+			if all(elem[x] for elem in nested_bools):
+				all_zeros_dict[self.DF.loc[x, self.line_col_ref]].append(self.DF.loc[x, self.date_col_ref])
+		return all_zeros_dict
+	
+	def critical_single_zeros_nans(self):
+		all_zeros_nans_dict = {line : [] for line in self.DF[self.line_col_ref].unique()}
+		nested_nans = [pd.isnull(self.DF[col]) for col in self.cols]
+		nested_zeros = [np.float64(self.DF[col]) == 0 for col in self.cols]
+		zipped = zip(nested_nans, nested_zeros)
+		for x in DF.index:
+			bools = []
+			for s in xrange(len(zipped)):
+				bools.append(any([zipped[s][0][x], zipped[s][1][x]]))
+			if all(bools):
+				all_zeros_nans_dict[self.DF.loc[x, self.line_col_ref]].append(self.DF.loc[x, self.date_col_ref])
+		return all_zeros_nans_dict
+	
+	def critical_multi_nans(self):
+		all_nan_dict = {line : [] for line in self.DF[self.line_col_ref].unique()}
+		for group, data in self.DF.groupby([self.date_col_ref, self.line_col_ref]):
+			nested_bools = [pd.isnull(data[col]) for col in cols]
+			for x in data.index:
+				if all(elem[x] for elem in nested_bools):
+					all_nan_dict[group[1]].append(group[0])
+		return all_nan_dict
+		
+	def critical_multi_zeros(self):
+		all_zeros_dict = {line : [] for line in self.DF[self.line_col_ref].unique()}
+		for group, data in self.DF.groupby([self.date_col_ref, self.line_col_ref]):
+			nested_bools = [np.float64(data[col]) == 0 for col in cols]
+			for x in data.index:
+				if all(elem[x] for elem in nested_bools):
+					all_zeros_dict[group[1]].append(group[0])
+		return all_zeros_dict
+		
+	def critical_multi_zeros_nans(self):
+		all_zeros_nans_dict = {line : [] for line in self.DF[self.line_col_ref].unique()}
+		for group, data in self.DF.groupby([self.date_col_ref, self.line_col_ref]):
+			nested_nans = [pd.Series([True if pd.isnull(val) else False 
+									  for val in data[col]], index = data.index) 
+									  for col in self.cols]
+			nested_zeros = [pd.Series([True if np.float64(val) == 0 else False 
+									   for val in data[col]], index = data.index)
+									   for col in self.cols]
+			zipped = zip(nested_nans, nested_zeros)
+			for x in data.index:
+				bools = []
+			for s in xrange(len(zipped)):
+				bools.append(any([zipped[s][0][x], zipped[s][1][x]]))
+			if all(bools):
+				all_zeros_nans_dict[group[1]].append(group[0])
+		return all_zeros_nans_dict
+
 	

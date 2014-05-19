@@ -305,7 +305,9 @@ class CriticalPoints:
 		
 	def critical_single_zeros(self):
 		all_zeros_dict = {line : [] for line in self.DF[self.line_col_ref].unique()}
-		nested_bools = [np.float64(self.DF[col]) == 0 for col in self.cols]
+		nested_bools = [pd.Series([True if np.float64(val) == 0 else False 
+									   for val in self.DF[col]], index = self.DF.index)
+									   for col in self.cols]
 		for x in self.DF.index:
 			if all(elem[x] for elem in nested_bools):
 				all_zeros_dict[self.DF.loc[x, self.line_col_ref]].append(self.DF.loc[x, self.date_col_ref])
@@ -314,9 +316,11 @@ class CriticalPoints:
 	def critical_single_zeros_nans(self):
 		all_zeros_nans_dict = {line : [] for line in self.DF[self.line_col_ref].unique()}
 		nested_nans = [pd.isnull(self.DF[col]) for col in self.cols]
-		nested_zeros = [np.float64(self.DF[col]) == 0 for col in self.cols]
+		nested_zeros = [pd.Series([True if np.float64(val) == 0 else False 
+									   for val in self.DF[col]], index = self.DF.index)
+									   for col in self.cols]
 		zipped = zip(nested_nans, nested_zeros)
-		for x in DF.index:
+		for x in self.DF.index:
 			bools = []
 			for s in xrange(len(zipped)):
 				bools.append(any([zipped[s][0][x], zipped[s][1][x]]))

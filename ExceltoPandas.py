@@ -299,7 +299,7 @@ class CriticalPoints:
 		all_nan_dict = {line : [] for line in self.DF[self.line_col_ref].unique()}
 		nested_bools = [pd.isnull(self.DF[col]) for col in self.cols]
 		for x in self.DF.index:
-			if all(elem[x] for elem in nested_bools):
+			if all([elem[x] for elem in nested_bools]):
 				all_nan_dict[self.DF.loc[x, self.line_col_ref]].append(self.DF.loc[x, self.date_col_ref])
 		return all_nan_dict
 		
@@ -327,19 +327,25 @@ class CriticalPoints:
 	def critical_multi_nans(self):
 		all_nan_dict = {line : [] for line in self.DF[self.line_col_ref].unique()}
 		for group, data in self.DF.groupby([self.date_col_ref, self.line_col_ref]):
-			nested_bools = [pd.isnull(data[col]) for col in cols]
+			nested_bools = [pd.isnull(data[col]) for col in self.cols]
+			bools = []
 			for x in data.index:
-				if all(elem[x] for elem in nested_bools):
-					all_nan_dict[group[1]].append(group[0])
+				bools.append(all([elem[x] for elem in nested_bools]))
+			if all(bools):
+				all_nan_dict[group[1]].append(group[0])
 		return all_nan_dict
 		
 	def critical_multi_zeros(self):
 		all_zeros_dict = {line : [] for line in self.DF[self.line_col_ref].unique()}
 		for group, data in self.DF.groupby([self.date_col_ref, self.line_col_ref]):
-			nested_bools = [np.float64(data[col]) == 0 for col in cols]
+			nested_bools = [pd.Series([True if np.float64(val) == 0 else False 
+									   for val in data[col]], index = data.index)
+									   for col in self.cols]
+			bools = []
 			for x in data.index:
-				if all(elem[x] for elem in nested_bools):
-					all_zeros_dict[group[1]].append(group[0])
+				bools.append(all([elem[x] for elem in nested_bools]))
+			if all(bools):
+				all_zeros_dict[group[1]].append(group[0])
 		return all_zeros_dict
 		
 	def critical_multi_zeros_nans(self):
@@ -352,11 +358,12 @@ class CriticalPoints:
 									   for val in data[col]], index = data.index)
 									   for col in self.cols]
 			zipped = zip(nested_nans, nested_zeros)
+			
+			bools = []
 			for x in data.index:
-				bools = []
-			for s in xrange(len(zipped)):
-				bools.append(any([zipped[s][0][x], zipped[s][1][x]]))
-			if all(bools):
+				for s in xrange(len(zipped)):
+					bools.append(any([zipped[s][0][x], zipped[s][1][x]]))
+			if all(bools):				
 				all_zeros_nans_dict[group[1]].append(group[0])
 		return all_zeros_nans_dict
 

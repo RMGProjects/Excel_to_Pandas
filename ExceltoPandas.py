@@ -290,45 +290,66 @@ def unpickle_dataframe(top_folderpath, file_name):
 class CriticalPoints:
 	##MOSTLY UNTESTED
 	def __init__(self, DF, cols, line_col_ref, date_col_ref):
+		"""
+		DF				: DataFrame
+		cols			: list
+		line_col_ref 	: string
+		date_col_ref	: string
+		
+		Class for identifying points in the data where the 'critical values' 
+		identified in the cols argument are null, or equal to zero, or some 
+		combination of the two. The DF passed as argument should be a concatenated
+		data frame that contains observations for multiple dates, such as that 
+		created after using the workbook_concatenator class methods.\n
+		See the documentation for more information. 
+		"""
 		self.DF = DF
 		self.cols = cols
 		self.line_col_ref = line_col_ref
 		self.date_col_ref = date_col_ref
 		
-	def critical_single_nans(self):
-		all_nan_dict = {line : [] for line in self.DF[self.line_col_ref].unique()}
-		nested_bools = [pd.isnull(self.DF[col]) for col in self.cols]
-		for x in self.DF.index:
-			if all([elem[x] for elem in nested_bools]):
-				all_nan_dict[self.DF.loc[x, self.line_col_ref]].append(self.DF.loc[x, self.date_col_ref])
-		return all_nan_dict
+	# def critical_single_nans(self):
+		# all_nan_dict = {line : [] for line in self.DF[self.line_col_ref].unique()}
+		# nested_bools = [pd.isnull(self.DF[col]) for col in self.cols]
+		# for x in self.DF.index:
+			# if all([elem[x] for elem in nested_bools]):
+				# all_nan_dict[self.DF.loc[x, self.line_col_ref]].append(self.DF.loc[x, self.date_col_ref])
+		# return all_nan_dict
 		
-	def critical_single_zeros(self):
-		all_zeros_dict = {line : [] for line in self.DF[self.line_col_ref].unique()}
-		nested_bools = [pd.Series([True if np.float64(val) == 0 else False 
-									   for val in self.DF[col]], index = self.DF.index)
-									   for col in self.cols]
-		for x in self.DF.index:
-			if all(elem[x] for elem in nested_bools):
-				all_zeros_dict[self.DF.loc[x, self.line_col_ref]].append(self.DF.loc[x, self.date_col_ref])
-		return all_zeros_dict
+	# def critical_single_zeros(self):
+		# all_zeros_dict = {line : [] for line in self.DF[self.line_col_ref].unique()}
+		# nested_bools = [pd.Series([True if np.float64(val) == 0 else False 
+									   # for val in self.DF[col]], index = self.DF.index)
+									   # for col in self.cols]
+		# for x in self.DF.index:
+			# if all(elem[x] for elem in nested_bools):
+				# all_zeros_dict[self.DF.loc[x, self.line_col_ref]].append(self.DF.loc[x, self.date_col_ref])
+		# return all_zeros_dict
 	
-	def critical_single_zeros_nans(self):
-		all_zeros_nans_dict = {line : [] for line in self.DF[self.line_col_ref].unique()}
-		nested_nans = [pd.isnull(self.DF[col]) for col in self.cols]
-		nested_zeros = [pd.Series([True if np.float64(val) == 0 else False 
-									   for val in self.DF[col]], index = self.DF.index)
-									   for col in self.cols]
-		zipped = zip(nested_nans, nested_zeros)
-		for x in self.DF.index:
-			bools = []
-			for s in xrange(len(zipped)):
-				bools.append(any([zipped[s][0][x], zipped[s][1][x]]))
-			if all(bools):
-				all_zeros_nans_dict[self.DF.loc[x, self.line_col_ref]].append(self.DF.loc[x, self.date_col_ref])
-		return all_zeros_nans_dict
+	# def critical_single_zeros_nans(self):
+		# all_zeros_nans_dict = {line : [] for line in self.DF[self.line_col_ref].unique()}
+		# nested_nans = [pd.isnull(self.DF[col]) for col in self.cols]
+		# nested_zeros = [pd.Series([True if np.float64(val) == 0 else False 
+									   # for val in self.DF[col]], index = self.DF.index)
+									   # for col in self.cols]
+		# zipped = zip(nested_nans, nested_zeros)
+		# for x in self.DF.index:
+			# bools = []
+			# for s in xrange(len(zipped)):
+				# bools.append(any([zipped[s][0][x], zipped[s][1][x]]))
+			# if all(bools):
+				# all_zeros_nans_dict[self.DF.loc[x, self.line_col_ref]].append(self.DF.loc[x, self.date_col_ref])
+		# return all_zeros_nans_dict
 	
-	def critical_multi_nans(self):
+	def critical_nans(self):
+		"""
+		return	: dict
+		
+		Function returns a dictionary of line names and values that are lists of 
+		dates where the data for a particular line at the critical points are all
+		null values. 
+		"""
+		
 		all_nan_dict = {line : [] for line in self.DF[self.line_col_ref].unique()}
 		for group, data in self.DF.groupby([self.date_col_ref, self.line_col_ref]):
 			nested_bools = [pd.isnull(data[col]) for col in self.cols]
@@ -339,7 +360,14 @@ class CriticalPoints:
 				all_nan_dict[group[1]].append(group[0])
 		return all_nan_dict
 		
-	def critical_multi_zeros(self):
+	def critical_zeros(self):
+		"""
+		return	: dict
+		
+		Function returns a dictionary of line names and values that are lists of 
+		dates where the data for a particular line at the critical points are all
+		zeros. 
+		"""
 		all_zeros_dict = {line : [] for line in self.DF[self.line_col_ref].unique()}
 		for group, data in self.DF.groupby([self.date_col_ref, self.line_col_ref]):
 			nested_bools = [pd.Series([True if np.float64(val) == 0 else False 
@@ -352,7 +380,14 @@ class CriticalPoints:
 				all_zeros_dict[group[1]].append(group[0])
 		return all_zeros_dict
 		
-	def critical_multi_zeros_nans(self):
+	def critical_zeros_nans(self):
+		"""
+		return	: dict
+		
+		Function returns a dictionary of line names and values that are lists of 
+		dates where the data for a particular line at the critical points are all
+		null values or zeros. 
+		"""
 		all_zeros_nans_dict = {line : [] for line in self.DF[self.line_col_ref].unique()}
 		for group, data in self.DF.groupby([self.date_col_ref, self.line_col_ref]):
 			nested_nans = [pd.Series([True if pd.isnull(val) else False 

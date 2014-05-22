@@ -190,7 +190,7 @@ unusual_dict
 
 ---
 
-##Creating a Workbook Concatenator Object<br/>
+##Workbook Concatenation<br/>
 ###Purpose and Information</br>
 Once the workbook has been checked for inconsistencies it can be concatenated into a single `DataFrame`. To assist in this process ExceltoPandas provides the `workbook_concatenator` class object. 
 
@@ -246,12 +246,71 @@ DF = wk_concat.concat_all()
 
 ---
 
+##Critical Points Object<br/>
+###Purpose and Information</br>
+Sometimes lines are merged with other lines, and sometimes lines are 'off' for the day, or subject to a new 'layout' for the entire day (meaning that workers move elsewhere). 
+
+When lines are merged with other lines we need a variable that gives the line code of the other line the line is merged with, and the data must be present for both lines. 
+
+When lines as off for whatever reason we need a line status variable (for the entire dataset) that is equal to 1 when the line is 'on' and 2 when the line is 'off'.
+
+But how to find these instances of merged lines and off lines? Well there are several ways in fact. One way to identify merged lines is by using the `unusual_lines()` function provided with ExceltoPandas. Another way is to use the `CriticalPoints` class object. 
+
+The `CriticalPoints` object allows the user to test whether critical data points are null or equal to zero or some combination of the two. A 'critical data point' is a data point that when looked at in combination with the other critical data points (if any), if the points are null or all equal to zero, then no activity could have taken place on the particular line on that day.
+
+A typical example from the production data would be that if 'daily input' and 'daily output' are both zero, or null, then probably nothing happened on that day on that line. When specifying these points to the class object, be careful to choose wisely. 
+
+###Workflow and Syntax<br/>
+####Creating an `etp.CriticalPoints` object<br/>
+The syntax for creating a `CriticalPoints` object is as follows:
+
+`etp.CriticalPoints(DF, cols, line_col_ref, date_col_ref)`
+
+|     |     |
+| --- | --- |
+|`DF` :| DataFrame (concatenated)
+|`cols` : | `List of column references that 'critical points'
+|`line_col_ref` :| string that identifies the column in the DataFrames that contain the line number/name
+|`date_col_ref` : | string that identifies the column in the DataFrames that contain the dates
+
+The class has attributes as the arguments passed. 
+
+An example call might look like this:
+
+```python
+criticals = etp.CriticalPoints(DF, ['input_today', 'output_today'], 'line', 'date')
+```
+
+####Check Critical Nulls<br/>
+The `critical_nans()` method allows the user to identify those day/line observations at which all of the critical points are null. The syntax is as follows:
+
+`etp.CriticalPoints.critical_nans()`
+
+|     |     |
+| --- | --- |
+|**Returns** : | dict of line_number keys and a list of dates at which those line numbers have critical values that are all null. 
+
+The output should be examined and the original sheets should be looked at to determine if the data are just missing (for no reason) or the line is off, subject to layout. If the line is properly thought of as 'off' and this can be demonstrated (generally by looking at the comments/remarks column), then the line_status variable should equal 2 for that line on that day. If you are unable to determine why the data are missing, then they should just remain missing. If the lines are merged then speak to RC. At present there is no mechanism for dealing with merged lines, but this functionality will be added.
+
+Note that it is assumed that the critical points are numeric types. If a value that is not convertible to numeric type is found an error will be generated. Use this error to find the problem rogue string and deal with them. 
+
+####Check Critical Zeros<br/>
+This works in exactly the same way as the above method, but will show lines where the critical values are all zero. The syntax is as follows:
+
+`etp.CriticalPoints.critical_zeros()`
+
+####Check Critical Zeros and Null<br/>
+Again this works as above but it it identifies where the critical values are all either zero or null. In fact this method will catch all of the former points (just nans, and just zeros), but as the issues surrounding zero and null are typically different there are three methods provided separately. 
+
+It is very important to understand when a value should be 0 and when it should be null. If you are in any doubt please ask RC. 
+
 ##Next Steps<br/>
 Next a number of procedures will need to be followed using general pandas techniques i.e there is no special ExceltoPandas functionality. These steps may involve:
 
 + filling NA values of line, line_code, unit etc. that are NA due to merged cells. This may involve forward filling.
 + checking that the filling of NA values stratgey was a good one (grouping and checking number of values)
 + checking there are not null values in the columns where we would not expect them
++ ensuring that data types are as expected. 
 + checking unique values of columns to be sure that data are as we would expect them to be
 + reshaping the data frame where necessary. 
 

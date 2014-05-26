@@ -307,39 +307,6 @@ class CriticalPoints:
 		self.cols = cols
 		self.line_col_ref = line_col_ref
 		self.date_col_ref = date_col_ref
-		
-	# def critical_single_nans(self):
-		# all_nan_dict = {line : [] for line in self.DF[self.line_col_ref].unique()}
-		# nested_bools = [pd.isnull(self.DF[col]) for col in self.cols]
-		# for x in self.DF.index:
-			# if all([elem[x] for elem in nested_bools]):
-				# all_nan_dict[self.DF.loc[x, self.line_col_ref]].append(self.DF.loc[x, self.date_col_ref])
-		# return all_nan_dict
-		
-	# def critical_single_zeros(self):
-		# all_zeros_dict = {line : [] for line in self.DF[self.line_col_ref].unique()}
-		# nested_bools = [pd.Series([True if np.float64(val) == 0 else False 
-									   # for val in self.DF[col]], index = self.DF.index)
-									   # for col in self.cols]
-		# for x in self.DF.index:
-			# if all(elem[x] for elem in nested_bools):
-				# all_zeros_dict[self.DF.loc[x, self.line_col_ref]].append(self.DF.loc[x, self.date_col_ref])
-		# return all_zeros_dict
-	
-	# def critical_single_zeros_nans(self):
-		# all_zeros_nans_dict = {line : [] for line in self.DF[self.line_col_ref].unique()}
-		# nested_nans = [pd.isnull(self.DF[col]) for col in self.cols]
-		# nested_zeros = [pd.Series([True if np.float64(val) == 0 else False 
-									   # for val in self.DF[col]], index = self.DF.index)
-									   # for col in self.cols]
-		# zipped = zip(nested_nans, nested_zeros)
-		# for x in self.DF.index:
-			# bools = []
-			# for s in xrange(len(zipped)):
-				# bools.append(any([zipped[s][0][x], zipped[s][1][x]]))
-			# if all(bools):
-				# all_zeros_nans_dict[self.DF.loc[x, self.line_col_ref]].append(self.DF.loc[x, self.date_col_ref])
-		# return all_zeros_nans_dict
 	
 	def critical_nans(self):
 		"""
@@ -405,5 +372,56 @@ class CriticalPoints:
 			if all(bools):				
 				all_zeros_nans_dict[group[1]].append(group[0])
 		return all_zeros_nans_dict
-
+		
+class MergedLines:
+	def __init__(self, DF, line_col_ref, line_codes):
+		self.DF = DF
+		self.line_col_ref = line_col_ref
+		self.line_codes = line_codes
+		self.merged_index = DF[DF[line_col_ref].str.contains('&')].index
+		self.merged_df = DF.loc[self.merged_index]
+		self.merged_df['merged'] = [1 for x in xrange(len(self.merged_df))]
+		self.merged_df['merged_with1'] = [str(NA) for x in self.merged_df.index]
+		self.merged_df['merged_with2'] = [str(NA) for x in self.merged_df.index]
+		self.merged_df['merged_with3'] = [str(NA) for x in self.merged_df.index]
 	
+	def get_drop_index(self):
+		merge_dict = {}
+		for row in self.merged_df.index:
+			val = self.merged_df.loc[row, self.line_col_ref]
+			merge_dict[row[0]] = val.split('&')
+		index_for_drop = []
+		for group, data in self.DF.groupby(level = 0):
+			if group in merge_dict:
+				for g_row in data.index:
+					if data.loc[g_row, self.line_col_ref] in merge_dict[group]:
+						index_for_drop.append(g_row)
+		index_for_drop = list(index_for_drop) + list(self.merged_index)
+		return index_for_drop
+				
+	def get_merged_df(self):
+		fragments = []
+		merged_df = self.merged_df.reset_index()
+		for m_row in merged_df.index:
+			m_val = merged_df.loc[m_row, self.line_col_ref].split('&')
+			for line in m_val:
+				copied = merged_df.loc[m_row, :].copy()
+				copied.loc[self.line_col_ref] = line
+				fragments.append(copied)
+		fragments_df = pd.concat([pd.DataFrame(fragment).T for fragment in fragments])
+		fragments_df = fragments_df.drop(self.line_codes.columns, axis = 1)
+		fragments_df = fragments_df.merge(self.line_codes, left_on = self.line_col_ref, right_on = 'line')
+		i3 = [item for item in xrange(len(fragments_df.index))]
+		fragments_df['Index3'] = pd.Series(i3, index = fragments_df.index)
+		fragments_df = fragments_df.set_index('Index3')
+		
+		for s_group, s_data in fragments_df.groupby(['Index1', 'Index2'], as_index = False):
+			lines = {line : list(self.line_codes[self.line_codes['line'] == line]['line_code'])[0] 
+													for line in list(s_data[self.line_col_ref])}
+			for sg_row in s_data.index:
+				relevant_keys = [key for key in lines.keys() if key != s_data.loc[sg_row, self.line_col_ref]]
+				for x in xrange(1, len(relevant_keys) + 1):
+					col = 'merged_with' + str(x)
+					fragments_df.loc[sg_row, col ] = lines[relevant_keys[x-1]]
+		fragments_df = fragments_df.sort('Index1', 'Index2')
+		return fragments_df
